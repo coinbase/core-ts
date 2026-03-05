@@ -1,5 +1,5 @@
 {
-  "name": "@coinbase-sample/core-ts",
+  "name": "@coinbase/core-ts",
   "version": "0.2.2",
   "description": "Coinbase TS Core used by other libraries and examples",
   "main": "dist/index.js",
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:coinbase-samples/core-ts.git"
+    "url": "git@github.com:coinbase/core-ts.git"
   },
   "author": "sa@coinbase.com",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/coinbase-samples/core-ts/issues"
+    "url": "https://github.com/coinbase/core-ts/issues"
   },
-  "homepage": "https://github.com/coinbase-samples/core-ts#readme",
+  "homepage": "https://github.com/coinbase/core-ts#readme",
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.4",
     "@eslint/js": "^10.0.1",
