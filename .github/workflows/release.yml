@@ -1,14 +1,13 @@
-name: Version 🔖
+name: publish @coinbase/core-ts
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   version:
@@ -38,20 +37,10 @@ jobs:
       - name: Build packages
         shell: bash
         run: |
+          npm install -g npm@latest
           npm install
           npm run build
 
-      - name: Set deployment token
-        run: npm config set '//registry.npmjs.org/:_authToken' "${{ secrets.NPM_TOKEN }}"
-
-      - name: Handle Release Pull Request or Publish to npm
-        id: changesets
-        uses: changesets/action@746c25e23caa47dceb6a48ee85b4cbc5a9f5f293 # v1.5.0
-        with:
-          title: 'chore: version packages 🚀'
-          commit: 'chore: version packages 🚀'
-          publish: npm publish --access public
-          commitMode: github-api
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm
+        run: |
+          npm publish --access public --provenance
