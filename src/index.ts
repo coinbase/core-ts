@@ -26,6 +26,8 @@ export {
   TransformRequestFn,
   TransformResponseFn,
   CoinbaseHttpClientRetryOptions,
+  CoinbaseTlsOptions,
+  CoinbaseTlsMaterial,
 } from './http/options';
 export {
   IJsonUtility,

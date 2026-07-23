@@ -16,6 +16,42 @@ export type TransformRequestFn = (config: any) => any;
  */
 export type TransformResponseFn = (data: any) => any;
 
+/**
+ * TLS material accepted for mutual TLS client authentication.
+ */
+export type CoinbaseTlsMaterial = string | Buffer | Array<string | Buffer>;
+
+/**
+ * Options for configuring mutual TLS (mTLS) client certificates.
+ */
+export interface CoinbaseTlsOptions {
+  /**
+   * Client certificate (PEM string or Buffer).
+   */
+  cert?: CoinbaseTlsMaterial;
+  /**
+   * Client private key (PEM string or Buffer).
+   */
+  key?: CoinbaseTlsMaterial;
+  /**
+   * Certificate authority bundle used to verify the server certificate.
+   */
+  ca?: CoinbaseTlsMaterial;
+  /**
+   * Passphrase for an encrypted private key or PFX bundle.
+   */
+  passphrase?: string;
+  /**
+   * PKCS#12 archive containing certificate and key.
+   */
+  pfx?: string | Buffer | Array<string | Buffer>;
+  /**
+   * Whether to reject invalid or unauthorized server certificates.
+   * Defaults to Node.js / axios secure behavior when omitted.
+   */
+  rejectUnauthorized?: boolean;
+}
+
 export interface CoinbaseHttpClientRetryOptions {
   /**
    * A number of milliseconds to wait before timing out
@@ -57,6 +93,15 @@ export interface CoinbaseHttpClientRetryOptions {
    * A function to modify the response object before returning
    */
   transformResponse?: TransformResponseFn | TransformResponseFn[];
+  /**
+   * A pre-built Node.js https.Agent for TLS configuration (including mTLS).
+   * Takes precedence over `tls` when both are provided.
+   */
+  httpsAgent?: import('https').Agent;
+  /**
+   * TLS options used to build an https.Agent for mutual TLS.
+   */
+  tls?: CoinbaseTlsOptions;
 }
 
 export interface CoinbaseHttpRequestOptions {
@@ -146,4 +191,13 @@ export interface CoinbaseCallOptions {
    * A function to modify the response object before returning
    */
   transformResponse?: TransformResponseFn | TransformResponseFn[];
+  /**
+   * A pre-built Node.js https.Agent for TLS configuration (including mTLS).
+   * Takes precedence over `tls` when both are provided.
+   */
+  httpsAgent?: import('https').Agent;
+  /**
+   * TLS options used to build an https.Agent for mutual TLS.
+   */
+  tls?: CoinbaseTlsOptions;
 }
