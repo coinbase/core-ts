@@ -32,6 +32,7 @@ import {
   DEFAULT_PAGINATION_MAX_ITEMS,
   DEFAULT_PAGINATION_MAX_PAGES,
 } from '../constants';
+import { buildHttpsAgent } from './tls';
 
 export class CoinbaseHttpClient implements HttpClient {
   private credentials: CoinbaseCredentials | undefined;
@@ -63,16 +64,31 @@ export class CoinbaseHttpClient implements HttpClient {
     if (!options.maxPages) options.maxPages = DEFAULT_PAGINATION_MAX_PAGES;
     if (!options.maxItems) options.maxItems = DEFAULT_PAGINATION_MAX_ITEMS;
     this.httpOptions = options;
+    this.addedRequestTransformers = this.toArray(options.transformRequest);
+    this.addedResponseTransformers = this.toArray(options.transformResponse);
     this.httpClient = this._setupHttpClient(options);
+    this.applyRequestTransformers(
+      this.httpClient,
+      this.addedRequestTransformers
+    );
+    this.applyResponseTransformers(
+      this.httpClient,
+      this.addedResponseTransformers
+    );
   }
 
+  // _setupHttpClient only builds the axios instance and retry behavior.
+  // Transformer registration is handled separately so that ephemeral,
+  // per-call clients never mutate the shared transformer lists.
   _setupHttpClient(options?: CoinbaseHttpClientRetryOptions) {
+    const httpsAgent = buildHttpsAgent(options);
     const axiosClient = axios.create({
       baseURL: this.apiBasePath,
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': this.userAgent,
       },
+      ...(httpsAgent ? { httpsAgent } : {}),
     });
 
     if (options) {
@@ -93,39 +109,30 @@ export class CoinbaseHttpClient implements HttpClient {
       }
     }
 
-    const transformRequest = options?.transformRequest
-      ? Array.isArray(options.transformRequest)
-        ? (options.transformRequest as TransformRequestFn[])
-        : (options.transformRequest as TransformRequestFn)
-      : [];
-
-    if (Array.isArray(transformRequest)) {
-      transformRequest.forEach((transformer) => {
-        axiosClient.interceptors.request.use(transformer, null);
-        this.addedRequestTransformers.push(transformer);
-      });
-    } else if (typeof transformRequest === 'function') {
-      axiosClient.interceptors.request.use(transformRequest, null);
-      this.addedRequestTransformers.push(transformRequest);
-    }
-
-    const transformResponse = options?.transformResponse
-      ? Array.isArray(options.transformResponse)
-        ? (options.transformResponse as TransformResponseFn[])
-        : (options.transformResponse as TransformResponseFn)
-      : [];
-
-    if (Array.isArray(transformResponse)) {
-      transformResponse.forEach((transformer) => {
-        axiosClient.interceptors.response.use(transformer, null);
-        this.addedResponseTransformers.push(transformer);
-      });
-    } else if (typeof transformResponse === 'function') {
-      axiosClient.interceptors.response.use(transformResponse, null);
-      this.addedResponseTransformers.push(transformResponse);
-    }
-
     return axiosClient;
+  }
+
+  private toArray<T>(value?: T | T[]): T[] {
+    if (!value) return [];
+    return Array.isArray(value) ? [...value] : [value];
+  }
+
+  private applyRequestTransformers(
+    client: AxiosInstance,
+    transformers: TransformRequestFn[]
+  ) {
+    transformers.forEach((transformer) => {
+      client.interceptors.request.use(transformer, null);
+    });
+  }
+
+  private applyResponseTransformers(
+    client: AxiosInstance,
+    transformers: TransformResponseFn[]
+  ) {
+    transformers.forEach((transformer) => {
+      client.interceptors.response.use(transformer, null);
+    });
   }
 
   async sendRequest<T = any>(
@@ -147,7 +154,6 @@ export class CoinbaseHttpClient implements HttpClient {
     let client = this.httpClient;
 
     if (options.callOptions) {
-      //Does this need a custom transformer?
       const combinedOptions = {
         ...this.httpOptions,
         ...options.callOptions,
@@ -157,13 +163,26 @@ export class CoinbaseHttpClient implements HttpClient {
         callSpecificClient.defaults.headers[key] = value;
       });
 
-      // Apply any transformers that were added to the main client
-      this.addedResponseTransformers.forEach((transformer) => {
-        callSpecificClient.interceptors.response.use(transformer, null);
-      });
-      this.addedRequestTransformers.forEach((transformer) => {
-        callSpecificClient.interceptors.request.use(transformer, null);
-      });
+      // Replay the persistent transformers (constructor globals + any added
+      // via addTransform*) onto the per-call client, then apply the
+      // call-specific transformers. Each runs exactly once and the
+      // call-specific ones are never persisted, so nothing leaks across calls.
+      this.applyRequestTransformers(
+        callSpecificClient,
+        this.addedRequestTransformers
+      );
+      this.applyResponseTransformers(
+        callSpecificClient,
+        this.addedResponseTransformers
+      );
+      this.applyRequestTransformers(
+        callSpecificClient,
+        this.toArray(options.callOptions.transformRequest)
+      );
+      this.applyResponseTransformers(
+        callSpecificClient,
+        this.toArray(options.callOptions.transformResponse)
+      );
 
       client = callSpecificClient;
     }
@@ -192,11 +211,15 @@ export class CoinbaseHttpClient implements HttpClient {
   }
 
   addTransformRequest(func: TransformRequestFn) {
+    // Guard against registering the same handler twice.
+    if (this.addedRequestTransformers.includes(func)) return;
     this.addedRequestTransformers.push(func);
     this.httpClient.interceptors.request.use(func, null);
   }
 
   addTransformResponse(func: TransformResponseFn) {
+    // Guard against registering the same handler twice.
+    if (this.addedResponseTransformers.includes(func)) return;
     this.addedResponseTransformers.push(func);
     this.httpClient.interceptors.response.use(func, null);
   }
