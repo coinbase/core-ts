@@ -18,7 +18,7 @@ The application and code are only available for demonstration purposes.
 
 ## Build
 
-To build the sample library, ensure that Node.js 22+ is installed and then run:
+To build the sample library, ensure that Node.js 24+ is installed and then run:
 
 ```bash
 npm run build
